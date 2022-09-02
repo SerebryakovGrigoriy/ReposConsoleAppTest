@@ -1,4 +1,4 @@
-﻿using System;
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -14,45 +14,42 @@ namespace TestProject
     {
         static void Main(string[] args)
         {
-
-
-            string connetionString;
-            connetionString = @"Data Source=GTR-1\SQLSERVER;Initial Catalog=CVD;User ID=sa;Password=j3qq5012zX";
-
-            var cnn = new SqlConnection(connetionString);
-            cnn.Open();
-            System.Console.WriteLine("Connection Open  !");
-
-
-            //-- суммарная зарплата в разрезе департаментов
-            var sqlCommand_SumSalary = new SqlCommand("SELECT SUM(e.salary) AS sum_salary_per_department, d.name FROM[CVD].[dbo].[employee]  e JOIN[CVD].[dbo].[department] d ON e.department_id = d.id WHERE EXISTS(SELECT 1  FROM employee e2  WHERE e2.department_id = e.department_id  ) GROUP BY d.name", cnn);
-            var sqlDataReader_SumSalary = sqlCommand_SumSalary.ExecuteReader();
-
-            while (sqlDataReader_SumSalary.Read())
+            try
             {
-                var strOut = $"Sum salary per department : {sqlDataReader_SumSalary.GetValue(0)}, Departmant name : {sqlDataReader_SumSalary.GetValue(1)}";
-                System.Console.WriteLine(strOut);
+                var sqlDataLayer = new SqlDataLayer();
+
+                string path = System.IO.Path.GetDirectoryName(System.Reflection.Assembly.GetExecutingAssembly().Location) + @"\ConnectionString.txt";
+
+                // получить строку подключения из файла ConnectionString.txt, который должен быть расположен в директории запуска исполняемого файла ConsoleAppTest.exe
+                var connectionString = System.IO.File.ReadAllText(path);
+
+                bool isConnection = sqlDataLayer.OpenConnection(connectionString);
+
+                if (isConnection)
+                {
+                    string DatabaseName = $"[{sqlDataLayer.GetDBName()}]";
+
+                    //-- суммарная зарплата в разрезе департаментов (без руководителей)
+                    sqlDataLayer.ExecuteSqlCommand_SumSalary_Without_Chief($"SELECT SUM(e.salary) AS sum_salary_per_department, d.name FROM{DatabaseName}.[dbo].[employee]  e JOIN{DatabaseName}.[dbo].[department] d ON e.department_id = d.id WHERE EXISTS(SELECT 1  FROM employee e2  WHERE e2.department_id = e.department_id)  AND e.id not in (SELECT distinct ex.chief_id FROM{DatabaseName}.[dbo].[employee] ex where ex.chief_id is not null) GROUP BY d.name");
+
+                    //-- суммарная зарплата в разрезе департаментов (с руководителями)
+                    sqlDataLayer.ExecuteSqlCommand_SumSalary_With_Chief($"SELECT SUM(e.salary) AS sum_salary_per_department, d.name FROM{DatabaseName}.[dbo].[employee]  e JOIN{DatabaseName}.[dbo].[department] d ON e.department_id = d.id WHERE EXISTS(SELECT 1  FROM employee e2  WHERE e2.department_id = e.department_id) GROUP BY d.name");
+
+                    //-- Департамент, в котором у сотрудника зарплата максимальна
+                    sqlDataLayer.ExecuteSqlCommand_DepartmentWithMaxalary($"SELECT d.name FROM{DatabaseName}.[dbo].[department] d WHERE d.id in (SELECT top(1) e.department_id FROM{DatabaseName}.[dbo].[employee]  e order by e.salary desc)");
+
+                    //-- Зарплаты руководителей департаментов (по убыванию)
+                    sqlDataLayer.ExecuteSqlCommand_Salary_Chief_Department($"SELECT d.name, a.name, a.salary  from{DatabaseName}.[dbo].[employee]  a LEFT JOIN{DatabaseName}.[dbo].[department] d ON a.department_id = d.id where  a.id in (SELECT distinct e.chief_id FROM{DatabaseName}.[dbo].[employee] e where e.chief_id is not null)  order by a.salary desc");
+                }
+
+                sqlDataLayer.CloseConnection();
             }
-            sqlDataReader_SumSalary.Close();
-            sqlCommand_SumSalary.Dispose();
-
-
-            //-- Департамент, в котором у сотрудника зарплата максимальна
-            var sqlCommand_DepartmentWithMaxalary = new SqlCommand("SELECT d.name FROM[CVD].[dbo].[department] d WHERE d.id in (SELECT top(1) e.department_id FROM[CVD].[dbo].[employee]  e order by e.salary desc)", cnn);
-            var sqlDataReader_DepartmentWithMaxalary = sqlCommand_DepartmentWithMaxalary.ExecuteReader();
-
-            while (sqlDataReader_DepartmentWithMaxalary.Read())
+            catch (Exception e)
             {
-                var strOut = $"Sum salary per department : {sqlDataReader_DepartmentWithMaxalary.GetValue(0)}, Departmant name : {sqlDataReader_DepartmentWithMaxalary.GetValue(1)}";
-                System.Console.WriteLine(strOut);
+                System.Console.WriteLine(e.StackTrace);
             }
-            sqlDataReader_DepartmentWithMaxalary.Close();
-            sqlCommand_DepartmentWithMaxalary.Dispose();
-
-
-            cnn.Close();
-            System.Console.WriteLine("Connection Closed  !");
             System.Console.ReadKey();
         }
     }
 }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
